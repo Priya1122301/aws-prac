@@ -1,0 +1,90 @@
+provider  "aws"  {
+  region = "us-east-2"
+
+}
+
+resource "aws_vpc" "priya_vpc" {
+  cidr_block = "192.168.0.0/16"
+  instance_tenancy =  "default"
+  tags = {
+    "Name" = "priya_vpc"
+  }
+}
+
+#create igw
+resource "aws_internet_gateway" "igw" {
+vpc_id = aws_vpc.priya_vpc.id
+ 
+ tags = {
+     Name = "priya_vpc gateway"
+
+ }
+}
+
+#create subnet
+
+resource "aws_subnet" "pub" {
+vpc_id = aws_vpc.priya_vpc.id 
+  cidr_block = "192.168.0.0/24"
+  availability_zone = "us-east-2a"
+  tags = {
+    Name = "public subnet"
+  }
+}
+
+resource "aws_subnet" "private" {
+vpc_id = aws_vpc.priya_vpc.id 
+  cidr_block = "192.168.1.0/24"
+  availability_zone = "us-east-2a"
+  tags = {
+    Name = "private subnet"
+  }
+}
+
+#create route tables
+
+resource "aws_route_table" "pub_rt" {
+vpc_id = aws_vpc.priya_vpc.id
+route {
+  cidr_block = "0.0.0.0/0"
+  gateway_id = aws_internet_gateway.igw.id
+}
+
+}
+
+resource "aws_route_table" "private_rt" {
+ vpc_id = aws_vpc.priya_vpc.id  
+}
+
+#create rt association
+resource "aws_route_table_association" "public" {
+ 
+ subnet_id = aws_subnet.pub.id
+ route_table_id = aws_route_table.pub_rt.id
+}
+
+resource "aws_route_table_association" "private" {
+ subnet_id = aws_subnet.private.id
+ route_table_id= aws_route_table.private_rt.id
+  
+}
+#create elasticip
+resource "aws_eip" "nat_eip" {
+ domain = "vpc"
+
+}
+#creating_nat_gateway
+
+resource "aws_nat_gateway" "nat_gw" {
+allocation_id = aws_eip.nat_eip.id
+subnet_id = aws_subnet.pub.id
+tags = {
+   Name =  "MY Natgateway"
+}
+  
+}
+resource "aws_route" "private_rt_nat" {
+ route_table_id = aws_route_table.private_rt.id
+ destination_cidr_block =  "0.0.0.0/0"
+ nat_gateway_id = aws_nat_gateway.nat_gw.id
+}
